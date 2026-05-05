@@ -281,6 +281,12 @@ try {
 # Windows Security Hardening Script - Comprehensive
 # Outputs confirmation messages for each completed action
 
+<<<<<<< HEAD:100% script
 Write-Host "=== Windows Security Hardening Script ===" -ForegroundColor Cyan
 Write-Host "Starting security hardening operations..." -ForegroundColor Green
 Write-Host ""
+=======
+Write-Host "`n=== Security Hardening Complete ===" -ForegroundColor Cyan
+Write-Host "All security configurations have been applied." -ForegroundColor Green
+Write-Host "Please review the output above for any errors." -ForegroundColor Yellow
+>>>>>>> 3a221d71a191d9f49cfc5603f5f6eb94901f708a:100% script.ps1
