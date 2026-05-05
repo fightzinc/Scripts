@@ -233,14 +233,6 @@ try {
 # ============================================================================
 # SECTION 8: WINDOWS UPDATE
 # ============================================================================
-
-Write-Host "`n--- WINDOWS UPDATE ---" -ForegroundColor Yellow
-
-# Enable Windows Update automatic checking
-try {
-    $regPath = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU"
-    if (!(Test-Path $regPath)) {
-        New-Item -Path $regPath -Force | Out-Null
     }
     Set-ItemProperty -Path $regPath -Name "NoAutoUpdate" -Value 0 -Type DWord -Force
     Write-Host "Windows automatically checks for updates" -ForegroundColor Green
@@ -258,117 +250,6 @@ try {
     Write-Host "Receive updates for other Microsoft products when you update Windows" -ForegroundColor Green
 } catch {
     Write-Host "Failed to enable Microsoft product updates: $($_.Exception.Message)" -ForegroundColor Red
-}
-
-# ============================================================================
-# SECTION 9: SOFTWARE UPDATES
-# ============================================================================
-
-Write-Host "`n--- SOFTWARE UPDATES ---" -ForegroundColor Yellow
-
-# Check and update software using winget/choco (with error handling)
-$softwareUpdates = @(
-    @{Name = "WinDirStat"; Package = "WinDirStat.WinDirStat"},
-    @{Name = "Notepad++"; Package = "Notepad++.Notepad++"},
-    @{Name = "Chrome"; Package = "Google.Chrome"}
-)
-
-foreach ($software in $softwareUpdates) {
-    try {
-        # Check if installed
-        $app = winget list $software.Package --exact 2>$null | Select-String $software.Package
-        if ($app) {
-            winget upgrade $software.Package --silent --accept-source-agreements 2>$null
-            Write-Host "$($software.Name) has been updated" -ForegroundColor Green
-        }
-    } catch {
-        Write-Host "Failed to update $($software.Name): $($_.Exception.Message)" -ForegroundColor Red
-    }
-}
-
-# ============================================================================
-# SECTION 10: SOFTWARE REMOVAL
-# ============================================================================
-
-Write-Host "`n--- SOFTWARE REMOVAL ---" -ForegroundColor Yellow
-
-# Remove prohibited Clear Text Password file
-try {
-    $filePath = "pass.csv"
-    if (Test-Path $filePath) {
-        Remove-Item -Path $filePath -Force
-        Write-Host "Removed prohibited Clear Text Password pass.csv" -ForegroundColor Green
-    }
-} catch {
-    Write-Host "Failed to remove pass.csv: $($_.Exception.Message)" -ForegroundColor Red
-}
-
-# Remove prohibited software
-$softwareToRemove = @(
-    @{Name = "Angry IP Scanner"; Packages = @("angry-ip-scanner", "angryipscanner")},
-    @{Name = "Discord"; Packages = @("Discord.Discord")},
-    @{Name = "PC Cleaner"; Packages = @("Piriform.CCleaner", "ccleaner")},
-    @{Name = "qBittorrent"; Packages = @("qBittorrent.qBittorrent")},
-    @{Name = "Brave Browser"; Packages = @("BraveSoftware.BraveBrowser", "brave")},
-    @{Name = "Gimp"; Packages = @("GIMP.GIMP", "gimp")},
-    @{Name = "Tini Backdoor"; Packages = @("tini")}
-)
-
-foreach ($software in $softwareToRemove) {
-    try {
-        foreach ($package in $software.Packages) {
-            $app = winget list $package 2>$null | Select-String $package -ErrorAction SilentlyContinue
-            if ($app) {
-                winget uninstall $package --silent 2>$null
-                Write-Host "Removed $($software.Name)" -ForegroundColor Green
-                break
-            }
-        }
-    } catch {
-        Write-Host "Failed to remove $($software.Name): $($_.Exception.Message)" -ForegroundColor Red
-    }
-}
-
-# ============================================================================
-# SECTION 11: FILEZILLA SERVER CONFIGURATION
-# ============================================================================
-
-Write-Host "`n--- FILEZILLA SERVER CONFIGURATION ---" -ForegroundColor Yellow
-
-# Start and enable FileZilla Server service
-try {
-    $service = Get-Service -Name "FileZilla Server" -ErrorAction SilentlyContinue
-    if ($service) {
-        Start-Service -Name "FileZilla Server" -ErrorAction SilentlyContinue
-        Set-Service -Name "FileZilla Server" -StartupType Automatic -ErrorAction SilentlyContinue
-        Write-Host "FileZilla Server service has been started and enabled" -ForegroundColor Green
-    }
-} catch {
-    Write-Host "Failed to start FileZilla Server service: $($_.Exception.Message)" -ForegroundColor Red
-}
-
-# Update FileZilla Server from version 1.11.0
-try {
-    # Check FileZilla version and update if needed
-    $fzPath = "C:\Program Files\FileZilla Server"
-    if (Test-Path $fzPath) {
-        Write-Host "FileZilla Server has been updated from version 1.11.0" -ForegroundColor Green
-    }
-} catch {
-    Write-Host "Failed to update FileZilla Server: $($_.Exception.Message)" -ForegroundColor Red
-}
-
-# Configure TLS for safe protocol version
-try {
-    $xmlPath = "C:\ProgramData\FileZilla Server\settings.xml"
-    if (Test-Path $xmlPath) {
-        [xml]$config = Get-Content $xmlPath
-        $config.FileZillaServer.Security.TlsVersion = "1.2"  # Set to TLS 1.2 or higher
-        $config.Save($xmlPath)
-        Write-Host "TLS configured for a safe protocol version" -ForegroundColor Green
-    }
-} catch {
-    Write-Host "Failed to configure TLS: $($_.Exception.Message)" -ForegroundColor Red
 }
 
 # Set AutoBanner ban duration to secure value
@@ -395,15 +276,11 @@ try {
             $config.Save($xmlPath)
         }
         Write-Host "Unauthorized FileZilla user `"jet`" has been removed or disabled" -ForegroundColor Green
-    }
-} catch {
-    Write-Host "Failed to remove FileZilla user: $($_.Exception.Message)" -ForegroundColor Red
-}
+    }#Requires -RunAsAdministrator
 
-# ============================================================================
-# COMPLETION
-# ============================================================================
+# Windows Security Hardening Script - Comprehensive
+# Outputs confirmation messages for each completed action
 
-Write-Host "`n=== Security Hardening Complete ===" -ForegroundColor Cyan
-Write-Host "All security configurations have been applied." -ForegroundColor Green
-Write-Host "Please review the output above for any errors." -ForegroundColor Yellow
+Write-Host "=== Windows Security Hardening Script ===" -ForegroundColor Cyan
+Write-Host "Starting security hardening operations..." -ForegroundColor Green
+Write-Host ""
