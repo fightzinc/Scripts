@@ -13,48 +13,21 @@ Write-Host ""
 
 Write-Host "--- USER MANAGEMENT ---" -ForegroundColor Yellow
 
-# Forensics Questions (placeholder - implement based on your scenario)
-try {
-    Write-Host "Forensics Question 1 correct" -ForegroundColor Green
-} catch {
-    Write-Host "Forensics Question 1 failed: $($_.Exception.Message)" -ForegroundColor Red
-}
+# Remove ozai account
+Remove-LocalUser -Name "ozai" -Force -ErrorAction SilentlyContinue
 
-try {
-    Write-Host "Forensics Question 2 correct" -ForegroundColor Green
-} catch {
-    Write-Host "Forensics Question 2 failed: $($_.Exception.Message)" -ForegroundColor Red
-}
+# Remove azula account
+Remove-LocalUser -Name "azula" -Force -ErrorAction SilentlyContinue
 
-# Remove unauthorized users
-$unauthorizedUsers = @("ozai", "azula")
-foreach ($user in $unauthorizedUsers) {
-    try {
-        $localUser = Get-LocalUser -Name $user -ErrorAction SilentlyContinue
-        if ($localUser) {
-            Remove-LocalUser -Name $user -Force
-            Write-Host "Removed unauthorized user $user" -ForegroundColor Green
-        }
-    } catch {
-        Write-Host "Failed to remove user $user : $($_.Exception.Message)" -ForegroundColor Red
-    }
-}
+# Remove momo from Administrators
+$adminGroup = [ADSI]"WinNT://./Administrators"
+$member = [ADSI]"WinNT://./momo"
+$adminGroup.Remove($member.AdsPath)
 
-# Remove admin privileges from specified users
-$nonAdminUsers = @("momo", "piandao")
-foreach ($user in $nonAdminUsers) {
-    try {
-        $localUser = Get-LocalUser -Name $user -ErrorAction SilentlyContinue
-        if ($localUser) {
-            $adminGroup = [ADSI]"WinNT://./Administrators"
-            $member = [ADSI]"WinNT://./$user"
-            $adminGroup.Remove($member.AdsPath)
-            Write-Host "User is not an administrator $user" -ForegroundColor Green
-        }
-    } catch {
-        Write-Host "Failed to modify privileges for $user : $($_.Exception.Message)" -ForegroundColor Red
-    }
-}
+# Remove piandao from Administrators
+$adminGroup = [ADSI]"WinNT://./Administrators"
+$member = [ADSI]"WinNT://./piandao"
+$adminGroup.Remove($member.AdsPath)
 
 # Disable administrator account
 try {
@@ -251,42 +224,3 @@ try {
 } catch {
     Write-Host "Failed to enable Microsoft product updates: $($_.Exception.Message)" -ForegroundColor Red
 }
-
-# Set AutoBanner ban duration to secure value
-try {
-    $xmlPath = "C:\ProgramData\FileZilla Server\settings.xml"
-    if (Test-Path $xmlPath) {
-        [xml]$config = Get-Content $xmlPath
-        $config.FileZillaServer.Settings.BanDuration = 3600  # 1 hour ban
-        $config.Save($xmlPath)
-        Write-Host "Autobanner ban duration is set to a secure value" -ForegroundColor Green
-    }
-} catch {
-    Write-Host "Failed to set autobanner ban duration: $($_.Exception.Message)" -ForegroundColor Red
-}
-
-# Remove unauthorized FileZilla user "jet"
-try {
-    $xmlPath = "C:\ProgramData\FileZilla Server\settings.xml"
-    if (Test-Path $xmlPath) {
-        [xml]$config = Get-Content $xmlPath
-        $user = $config.FileZillaServer.Users.User | Where-Object { $_.Name -eq "jet" }
-        if ($user) {
-            $config.FileZillaServer.Users.RemoveChild($user) | Out-Null
-            $config.Save($xmlPath)
-        }
-        Write-Host "Unauthorized FileZilla user `"jet`" has been removed or disabled" -ForegroundColor Green
-    }#Requires -RunAsAdministrator
-
-# Windows Security Hardening Script - Comprehensive
-# Outputs confirmation messages for each completed action
-
-<<<<<<< HEAD:100% script
-Write-Host "=== Windows Security Hardening Script ===" -ForegroundColor Cyan
-Write-Host "Starting security hardening operations..." -ForegroundColor Green
-Write-Host ""
-=======
-Write-Host "`n=== Security Hardening Complete ===" -ForegroundColor Cyan
-Write-Host "All security configurations have been applied." -ForegroundColor Green
-Write-Host "Please review the output above for any errors." -ForegroundColor Yellow
->>>>>>> 3a221d71a191d9f49cfc5603f5f6eb94901f708a:100% script.ps1
