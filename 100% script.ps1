@@ -14,20 +14,15 @@ Write-Host ""
 Write-Host "--- USER MANAGEMENT ---" -ForegroundColor Yellow
 
 # Remove ozai account
-Remove-LocalUser -Name "ozai" -Force -ErrorAction SilentlyContinue
-
+net user ozai /delete
 # Remove azula account
-Remove-LocalUser -Name "azula" -Force -ErrorAction SilentlyContinue
+net user azula /delete
 
 # Remove momo from Administrators
-$adminGroup = [ADSI]"WinNT://./Administrators"
-$member = [ADSI]"WinNT://./momo"
-$adminGroup.Remove($member.AdsPath)
+net localgroup administrators momo /delete
 
 # Remove piandao from Administrators
-$adminGroup = [ADSI]"WinNT://./Administrators"
-$member = [ADSI]"WinNT://./piandao"
-$adminGroup.Remove($member.AdsPath)
+net localgroup administrators piandao /delete
 
 # Disable administrator account
 try {
@@ -54,16 +49,13 @@ try {
     Write-Host "Failed to set password expiration: $($_.Exception.Message)" -ForegroundColor Red
 }
 
-# Configure Account Lockout Policy via Group Policy
+# Configure Account Lockout Policy - 5 attempts, 30 minute lockout
 try {
-    $regPath = "HKLM:\SYSTEM\CurrentControlSet\Services\RemoteAccess\Parameters\AccountLockout"
-    if (!(Test-Path $regPath)) {
-        New-Item -Path $regPath -Force | Out-Null
-    }
-    Set-ItemProperty -Path $regPath -Name "LockoutDuration" -Value 900 -Type DWord
-    Write-Host "A secure account lockout duration exists" -ForegroundColor Green
+    net accounts /lockoutduration:30
+    net accounts /lockoutthreshold:5
+    Write-Host "Account lockout policy configured: 5 attempts, 30 minute lockout" -ForegroundColor Green
 } catch {
-    Write-Host "Failed to set lockout duration: $($_.Exception.Message)" -ForegroundColor Red
+    Write-Host "Failed to set account lockout policy: $($_.Exception.Message)" -ForegroundColor Red
 }
 
 # Disable reversible encryption
@@ -92,25 +84,10 @@ try {
 
 # Disable anonymous SAM enumeration
 try {
-    $regPath = "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa"
-    Set-ItemProperty -Path $regPath -Name "RestrictAnonymous" -Value 1 -Type DWord -Force
-    Write-Host "Do not allow anonymous enumeration of SAM accounts [enabled]" -ForegroundColor Green
+    reg add "HKLM\SYSTEM\CurrentControlSet\Control\Lsa" /v "LSAAnonymousNameLookup" /t REG_DWORD /d 1 /f | Out-Null
+    Write-Host "Anonymous SAM enumeration is disabled" -ForegroundColor Green
 } catch {
-    Write-Host "Failed to restrict anonymous SAM enumeration: $($_.Exception.Message)" -ForegroundColor Red
-}
-
-# Remove "Take Ownership" privilege
-try {
-    # Remove SeTakeOwnershipPrivilege from Users
-    $sidString = "S-1-5-32-545"  # Users group
-    secedit /export /cfg "C:\temp\secedit_config.inf" | Out-Null
-    (Get-Content "C:\temp\secedit_config.inf") -replace "SeTakeOwnershipPrivilege = \*S-1-5-32-545.*", "" |
-        Set-Content "C:\temp\secedit_config.inf"
-    secedit /configure /db "C:\windows\security\local.sdb" /cfg "C:\temp\secedit_config.inf" /quiet | Out-Null
-    Remove-Item "C:\temp\secedit_config.inf" -Force -ErrorAction SilentlyContinue
-    Write-Host "User can no longer take ownership of files or other objects" -ForegroundColor Green
-} catch {
-    Write-Host "Failed to remove Take Ownership privilege: $($_.Exception.Message)" -ForegroundColor Red
+    Write-Host "Failed to disable anonymous SAM enumeration: $($_.Exception.Message)" -ForegroundColor Red
 }
 
 # ============================================================================
@@ -184,8 +161,7 @@ Write-Host "`n--- WINDOWS SERVICES ---" -ForegroundColor Yellow
 
 # Stop and disable Remote Registry service
 try {
-    Stop-Service -Name "RemoteRegistry" -Force -ErrorAction SilentlyContinue
-    Set-Service -Name "RemoteRegistry" -StartupType Disabled -ErrorAction SilentlyContinue
+    sc config RemoteRegistry start= disabled
     Write-Host "Remote Registry service has been stopped and disabled" -ForegroundColor Green
 } catch {
     Write-Host "Failed to disable Remote Registry: $($_.Exception.Message)" -ForegroundColor Red
@@ -206,6 +182,14 @@ try {
 # ============================================================================
 # SECTION 8: WINDOWS UPDATE
 # ============================================================================
+
+Write-Host "`n--- WINDOWS UPDATE ---" -ForegroundColor Yellow
+
+# Enable Windows Update automatic checking
+try {
+    $regPath = "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU"
+    if (!(Test-Path $regPath)) {
+        New-Item -Path $regPath -Force | Out-Null
     }
     Set-ItemProperty -Path $regPath -Name "NoAutoUpdate" -Value 0 -Type DWord -Force
     Write-Host "Windows automatically checks for updates" -ForegroundColor Green
@@ -224,3 +208,168 @@ try {
 } catch {
     Write-Host "Failed to enable Microsoft product updates: $($_.Exception.Message)" -ForegroundColor Red
 }
+    VICARIUS STRONGLY RECOMMENDS RUNNING THIS SCRIPT IN A TEST LAB ENVIRONMENT
+    BEFORE DEPLOYING IT TO PRODUCTION. USE AT YOUR OWN DISCRETION ONLY AFTER
+    CAREFULLY ANALYZING THE CODE.
+
+.AUTHOR
+This script has been made by Vicarius Research Team
+
+.VERSION
+1.0
+#>
+
+# ==========================================
+# TAG CONFIGURATION
+# ==========================================
+$TagInfo = "[Info]"
+$TagWarn = "[Warning]"
+$TagErr  = "[Error]"
+
+function Write-Status {
+    param(
+        [string]$Message,
+        [ValidateSet("Info","Warning","Error")][string]$Level = "Info"
+    )
+    $tag = switch ($Level) {
+        "Info"    { $TagInfo }
+        "Warning" { $TagWarn }
+        "Error"   { $TagErr }
+    }
+    Write-Host "$tag $Message"
+}
+
+Write-Status "Disable Store Passwords Using Reversible Encryption - CIS Benchmark 1.1.7" "Info"
+Write-Status "--------------------------------------------------------------------------" "Info"
+
+# Admin check
+try {
+    $isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()
+               ).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+    if (-not $isAdmin) {
+        Write-Status "Administrator privileges required." "Error"
+        Write-Output "RESULT=CIS-1.1.7-REVERSIBLE-ENCRYPTION|COMPLIANT|FALSE"
+        exit 1
+    }
+} catch {
+    Write-Status "Unable to verify elevation: $($_.Exception.Message)" "Warning"
+}
+
+# Define paths
+$AutomationTitle = "CIS-1.1.7-REVERSIBLE-ENCRYPTION"
+$TempDir = $env:TEMP
+$ExportCfg = Join-Path $TempDir "secpol_export.cfg"
+$ImportCfg = Join-Path $TempDir "secpol_import.cfg"
+$SeceditLog = Join-Path $TempDir "secedit_import.log"
+
+# Export current security policy
+try {
+    Write-Status "Exporting current security policy..." "Info"
+    $exportResult = & secedit /export /cfg $ExportCfg 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        Write-Status "Failed to export security policy: $exportResult" "Error"
+        Write-Output "RESULT=$AutomationTitle|COMPLIANT|FALSE"
+        exit 1
+    }
+} catch {
+    Write-Status "Failed to export security policy: $($_.Exception.Message)" "Error"
+    Write-Output "RESULT=$AutomationTitle|COMPLIANT|FALSE"
+    exit 1
+}
+
+# Read and modify the policy
+try {
+    $policyContent = Get-Content -Path $ExportCfg -ErrorAction Stop
+    $settingFound = $false
+    $alreadyCompliant = $false
+
+    $updatedContent = $policyContent | ForEach-Object {
+        if ($_ -match "^\s*ClearTextPassword\s*=") {
+            $settingFound = $true
+            if ($_ -match "=\s*0\s*$") {
+                $alreadyCompliant = $true
+            }
+            "ClearTextPassword = 0"
+        } else {
+            $_
+        }
+    }
+
+    if (-not $settingFound) {
+        Write-Status "ClearTextPassword setting not found in exported policy. Injecting into [System Access] section..." "Info"
+        $updatedContent = $policyContent | ForEach-Object {
+            $_
+            if ($_ -match "^\[System Access\]") {
+                "ClearTextPassword = 0"
+            }
+        }
+    }
+
+    if ($alreadyCompliant) {
+        Write-Status "Reversible encryption is already disabled (ClearTextPassword = 0)." "Info"
+        Write-Status "System is already compliant with CIS 1.1.7." "Info"
+        Remove-Item -Path $ExportCfg -Force -ErrorAction SilentlyContinue
+        Write-Output "RESULT=$AutomationTitle|COMPLIANT|TRUE"
+        exit 0
+    }
+
+    Write-Status "Setting ClearTextPassword to 0 (Disabled)..." "Info"
+    $updatedContent | Set-Content -Path $ImportCfg -Encoding Unicode -ErrorAction Stop
+} catch {
+    Write-Status "Failed to process security policy: $($_.Exception.Message)" "Error"
+    Remove-Item -Path $ExportCfg -Force -ErrorAction SilentlyContinue
+    Write-Output "RESULT=$AutomationTitle|COMPLIANT|FALSE"
+    exit 1
+}
+
+# Import the modified policy
+try {
+    Write-Status "Applying updated security policy..." "Info"
+    $importResult = & secedit /configure /db secedit.sdb /cfg $ImportCfg /log $SeceditLog /quiet 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        Write-Status "Failed to apply security policy: $importResult" "Error"
+        Remove-Item -Path $ExportCfg, $ImportCfg, $SeceditLog -Force -ErrorAction SilentlyContinue
+        Write-Output "RESULT=$AutomationTitle|COMPLIANT|FALSE"
+        exit 1
+    }
+} catch {
+    Write-Status "Failed to apply security policy: $($_.Exception.Message)" "Error"
+    Remove-Item -Path $ExportCfg, $ImportCfg, $SeceditLog -Force -ErrorAction SilentlyContinue
+    Write-Output "RESULT=$AutomationTitle|COMPLIANT|FALSE"
+    exit 1
+}
+
+# Verify configuration
+try {
+    Write-Status "Verifying applied configuration..." "Info"
+    $VerifyCfg = Join-Path $TempDir "secpol_verify.cfg"
+    $verifyResult = & secedit /export /cfg $VerifyCfg 2>&1
+    if ($LASTEXITCODE -ne 0) {
+        Write-Status "Could not export policy for verification: $verifyResult" "Warning"
+        Remove-Item -Path $ExportCfg, $ImportCfg, $SeceditLog -Force -ErrorAction SilentlyContinue
+        Write-Output "RESULT=$AutomationTitle|COMPLIANT|FALSE"
+        exit 1
+    }
+
+    $verifyContent = Get-Content -Path $VerifyCfg -ErrorAction Stop
+    $verified = $verifyContent | Where-Object { $_ -match "^\s*ClearTextPassword\s*=\s*0\s*$" }
+
+    Remove-Item -Path $ExportCfg, $ImportCfg, $SeceditLog, $VerifyCfg -Force -ErrorAction SilentlyContinue
+
+    if ($verified) {
+        Write-Status "Reversible encryption successfully disabled (ClearTextPassword = 0)." "Info"
+        Write-Status "System is now compliant with CIS 1.1.7." "Info"
+        Write-Output "RESULT=$AutomationTitle|COMPLIANT|TRUE"
+    } else {
+        Write-Status "Verification failed: ClearTextPassword is not set to 0." "Error"
+        Write-Output "RESULT=$AutomationTitle|COMPLIANT|FALSE"
+        exit 1
+    }
+} catch {
+    Write-Status "Could not verify configuration: $($_.Exception.Message)" "Warning"
+    Remove-Item -Path $ExportCfg, $ImportCfg, $SeceditLog -Force -ErrorAction SilentlyContinue
+    Write-Output "RESULT=$AutomationTitle|COMPLIANT|FALSE"
+    exit 1 }
+
+
+  #  I hope this works gng
