@@ -1,0 +1,54 @@
+$apps = @(
+    "Angry IP Scanner",
+    "PC Cleaner",
+    "Brave",
+    "GIMP"
+)
+
+# Get installed apps from registry
+$installed = Get-ItemProperty HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*, `
+                              HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\* |
+    Where-Object { $_.DisplayName -ne $null }
+
+foreach ($app in $apps) {
+    $matches = $installed | Where-Object { $_.DisplayName -like "*$app*" }
+
+    if ($matches) {
+        foreach ($match in $matches) {
+            Write-Host "Uninstalling $($match.DisplayName)..."
+
+            if ($match.UninstallString) {
+                $uninstallCmd = $match.UninstallString
+
+                if ($uninstallCmd -match "msiexec") {
+                    Start-Process "cmd.exe" -ArgumentList "/c $uninstallCmd /quiet /norestart" -Wait
+                } else {
+                    Start-Process "cmd.exe" -ArgumentList "/c `"$uninstallCmd`"" -Wait
+                }
+            } else {
+                Write-Host "No uninstall command found for $($match.DisplayName)"
+            }
+        }
+    } else {
+        Write-Host "$app not found."
+    }
+}
+
+# --- qBittorrent fallback removal ---
+Write-Host "Attempting qBittorrent cleanup..."
+
+Stop-Process -Name "qbittorrent" -Force -ErrorAction SilentlyContinue
+
+$paths = @(
+    "$env:ProgramFiles\qBittorrent",
+    "$env:ProgramFiles(x86)\qBittorrent",
+    "$env:LOCALAPPDATA\qBittorrent",
+    "$env:APPDATA\qBittorrent"
+)
+
+foreach ($path in $paths) {
+    if (Test-Path $path) {
+        Write-Host "Removing $path"
+        Remove-Item $path -Recurse -Force -ErrorAction SilentlyContinue
+    }
+}
