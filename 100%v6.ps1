@@ -153,6 +153,21 @@ try {
     Write-Host "Failed to modify FileZilla settings permissions: $($_.Exception.Message)" -ForegroundColor Red
 }
 
+# Delete FTP password CSV file if it exists
+try {
+    $ftpCsv = "C:\srv\ftp\pass.csv"
+    if (Test-Path $ftpCsv) {
+        takeown /f $ftpCsv | Out-Null
+        icacls $ftpCsv /grant "$env:USERNAME:F" | Out-Null
+        Remove-Item $ftpCsv -Force
+        Write-Host "Deleted C:/srv/ftp/pass.csv" -ForegroundColor Green
+    } else {
+        Write-Host "File C:/srv/ftp/pass.csv does not exist" -ForegroundColor Yellow
+    }
+} catch {
+    Write-Host "Failed to delete C:/srv/ftp/pass.csv: $($_.Exception.Message)" -ForegroundColor Red
+}
+
 # ============================================================================
 # SECTION 7: WINDOWS SERVICES
 # ============================================================================
