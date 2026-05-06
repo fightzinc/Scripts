@@ -52,3 +52,74 @@ foreach ($path in $paths) {
         Remove-Item $path -Recurse -Force -ErrorAction SilentlyContinue
     }
 }
+
+FOR DISCORD
+
+
+Write-Host "Starting deep Discord cleanup..."
+
+# 1. Kill all Discord processes
+Get-Process -Name "*discord*" -ErrorAction SilentlyContinue | Stop-Process -Force
+
+# 2. Remove Discord from all user profiles
+$users = Get-ChildItem "C:\Users" -Directory -ErrorAction SilentlyContinue
+
+foreach ($user in $users) {
+    $paths = @(
+        "$($user.FullName)\AppData\Local\Discord",
+        "$($user.FullName)\AppData\Roaming\Discord",
+        "$($user.FullName)\AppData\Local\SquirrelTemp"
+    )
+
+    foreach ($path in $paths) {
+        if (Test-Path $path) {
+            Write-Host "Deleting $path"
+            Remove-Item $path -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+}
+
+# 3. Remove startup entries (registry)
+$runPaths = @(
+    "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run",
+    "HKLM:\Software\Microsoft\Windows\CurrentVersion\Run"
+)
+
+foreach ($regPath in $runPaths) {
+    if (Test-Path $regPath) {
+        Get-ItemProperty $regPath | ForEach-Object {
+            $_.PSObject.Properties | ForEach-Object {
+                if ($_.Value -like "*discord*") {
+                    Write-Host "Removing startup entry: $($_.Name)"
+                    Remove-ItemProperty -Path $regPath -Name $_.Name -ErrorAction SilentlyContinue
+                }
+            }
+        }
+    }
+}
+
+# 4. Remove uninstall entries
+$uninstallPaths = @(
+    "HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*",
+    "HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*",
+    "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*"
+)
+
+foreach ($path in $uninstallPaths) {
+    Get-ItemProperty $path -ErrorAction SilentlyContinue | Where-Object {
+        $_.DisplayName -like "*Discord*"
+    } | ForEach-Object {
+        Write-Host "Removing uninstall entry: $($_.DisplayName)"
+        Remove-Item $_.PSPath -Recurse -Force -ErrorAction SilentlyContinue
+    }
+}
+
+# 5. Remove scheduled tasks (if any)
+Get-ScheduledTask -ErrorAction SilentlyContinue | Where-Object {
+    $_.TaskName -like "*discord*"
+} | ForEach-Object {
+    Write-Host "Removing scheduled task: $($_.TaskName)"
+    Unregister-ScheduledTask -TaskName $_.TaskName -Confirm:$false
+}
+
+Write-Host "`nDeep cleanup complete. Reboot recommended."
