@@ -163,3 +163,18 @@ foreach ($file in $files) {
 }
 
 Write-Host "Done."
+.
+
+
+
+
+Anonymous SAM enumeration disabled
+
+
+
+$path = "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa"
+
+# 1 = Enabled (do not allow anonymous enumeration)
+Set-ItemProperty -Path $path -Name "RestrictAnonymousSAM" -Value 1
+
+Write-Host "Policy applied: Anonymous SAM enumeration disabled."
