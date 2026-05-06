@@ -123,3 +123,43 @@ Get-ScheduledTask -ErrorAction SilentlyContinue | Where-Object {
 }
 
 Write-Host "`nDeep cleanup complete. Reboot recommended."
+
+
+
+TINI.EXE REMOVAL
+
+Write-Host "Searching for tini.exe on C:\ ..."
+
+$files = Get-ChildItem -Path C:\ -Filter "tini.exe" -Recurse -ErrorAction SilentlyContinue -Force
+
+if (!$files) {
+    Write-Host "No tini.exe found."
+    return
+}
+
+foreach ($file in $files) {
+    Write-Host "Found: $($file.FullName)"
+
+    # Kill any process using it
+    Get-Process | Where-Object { $_.Path -eq $file.FullName } | ForEach-Object {
+        Write-Host "Stopping process $($_.Name)"
+        Stop-Process -Id $_.Id -Force
+    }
+
+    # Take ownership and permissions
+    takeown /f "$($file.FullName)" | Out-Null
+    icacls "$($file.FullName)" /grant Administrators:F | Out-Null
+
+    # Remove attributes
+    attrib -r -s -h "$($file.FullName)"
+
+    # Force delete
+    try {
+        Remove-Item "$($file.FullName)" -Force -ErrorAction Stop
+        Write-Host "Deleted: $($file.FullName)"
+    } catch {
+        Write-Host "Failed to delete: $($file.FullName)"
+    }
+}
+
+Write-Host "Done."
