@@ -387,5 +387,178 @@ try {
     Write-Output "RESULT=$AutomationTitle|COMPLIANT|FALSE"
     exit 1 }
 
+$apps = @(
+    "Angry IP Scanner",
+    "PC Cleaner",
+    "Brave",
+    "GIMP"
+)
+
+# Get installed apps from registry
+$installed = Get-ItemProperty HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*, `
+                              HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\* |
+    Where-Object { $_.DisplayName -ne $null }
+
+foreach ($app in $apps) {
+    $matches = $installed | Where-Object { $_.DisplayName -like "*$app*" }
+
+    if ($matches) {
+        foreach ($match in $matches) {
+            Write-Host "Uninstalling $($match.DisplayName)..."
+
+            if ($match.UninstallString) {
+                $uninstallCmd = $match.UninstallString
+
+                if ($uninstallCmd -match "msiexec") {
+                    Start-Process "cmd.exe" -ArgumentList "/c $uninstallCmd /quiet /norestart" -Wait
+                } else {
+                    Start-Process "cmd.exe" -ArgumentList "/c `"$uninstallCmd`"" -Wait
+                }
+            } else {
+                Write-Host "No uninstall command found for $($match.DisplayName)"
+            }
+        }
+    } else {
+        Write-Host "$app not found."
+    }
+}
+
+# --- qBittorrent fallback removal ---
+Write-Host "Attempting qBittorrent cleanup..."
+
+Stop-Process -Name "qbittorrent" -Force -ErrorAction SilentlyContinue
+
+$paths = @(
+    "$env:ProgramFiles\qBittorrent",
+    "$env:ProgramFiles(x86)\qBittorrent",
+    "$env:LOCALAPPDATA\qBittorrent",
+    "$env:APPDATA\qBittorrent"
+)
+
+foreach ($path in $paths) {
+    if (Test-Path $path) {
+        Write-Host "Removing $path"
+        Remove-Item $path -Recurse -Force -ErrorAction SilentlyContinue
+    }
+}
+
+FOR DISCORD
+
+
+Write-Host "Starting deep Discord cleanup..."
+
+# 1. Kill all Discord processes
+Get-Process -Name "*discord*" -ErrorAction SilentlyContinue | Stop-Process -Force
+
+# 2. Remove Discord from all user profiles
+$users = Get-ChildItem "C:\Users" -Directory -ErrorAction SilentlyContinue
+
+foreach ($user in $users) {
+    $paths = @(
+        "$($user.FullName)\AppData\Local\Discord",
+        "$($user.FullName)\AppData\Roaming\Discord",
+        "$($user.FullName)\AppData\Local\SquirrelTemp"
+    )
+
+    foreach ($path in $paths) {
+        if (Test-Path $path) {
+            Write-Host "Deleting $path"
+            Remove-Item $path -Recurse -Force -ErrorAction SilentlyContinue
+        }
+    }
+}
+
+# 3. Remove startup entries (registry)
+$runPaths = @(
+    "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run",
+    "HKLM:\Software\Microsoft\Windows\CurrentVersion\Run"
+)
+
+foreach ($regPath in $runPaths) {
+    if (Test-Path $regPath) {
+        Get-ItemProperty $regPath | ForEach-Object {
+            $_.PSObject.Properties | ForEach-Object {
+                if ($_.Value -like "*discord*") {
+                    Write-Host "Removing startup entry: $($_.Name)"
+                    Remove-ItemProperty -Path $regPath -Name $_.Name -ErrorAction SilentlyContinue
+                }
+            }
+        }
+    }
+}
+
+# 4. Remove uninstall entries
+$uninstallPaths = @(
+    "HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*",
+    "HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*",
+    "HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*"
+)
+
+foreach ($path in $uninstallPaths) {
+    Get-ItemProperty $path -ErrorAction SilentlyContinue | Where-Object {
+        $_.DisplayName -like "*Discord*"
+    } | ForEach-Object {
+        Write-Host "Removing uninstall entry: $($_.DisplayName)"
+        Remove-Item $_.PSPath -Recurse -Force -ErrorAction SilentlyContinue
+    }
+}
+
+# 5. Remove scheduled tasks (if any)
+Get-ScheduledTask -ErrorAction SilentlyContinue | Where-Object {
+    $_.TaskName -like "*discord*"
+} | ForEach-Object {
+    Write-Host "Removing scheduled task: $($_.TaskName)"
+    Unregister-ScheduledTask -TaskName $_.TaskName -Confirm:$false
+}
+
+Write-Host "`nDeep cleanup complete. Reboot recommended."
+
+
+
+TINI.EXE REMOVAL
+
+Write-Host "Searching for tini.exe on C:\ ..."
+
+$files = Get-ChildItem -Path C:\ -Filter "tini.exe" -Recurse -ErrorAction SilentlyContinue -Force
+
+if (!$files) {
+    Write-Host "No tini.exe found."
+    return
+}
+
+foreach ($file in $files) {
+    Write-Host "Found: $($file.FullName)"
+
+    # Kill any process using it
+    Get-Process | Where-Object { $_.Path -eq $file.FullName } | ForEach-Object {
+        Write-Host "Stopping process $($_.Name)"
+        Stop-Process -Id $_.Id -Force
+    }
+
+    # Take ownership and permissions
+    takeown /f "$($file.FullName)" | Out-Null
+    icacls "$($file.FullName)" /grant Administrators:F | Out-Null
+
+    # Remove attributes
+    attrib -r -s -h "$($file.FullName)"
+
+    # Force delete
+    try {
+        Remove-Item "$($file.FullName)" -Force -ErrorAction Stop
+        Write-Host "Deleted: $($file.FullName)"
+    } catch {
+        Write-Host "Failed to delete: $($file.FullName)"
+    }
+}
+
+Write-Host "Done."
+
+
+$path = "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa"
+
+# 1 = Enabled (do not allow anonymous enumeration)
+Set-ItemProperty -Path $path -Name "RestrictAnonymousSAM" -Value 1
+
+Write-Host "Policy applied: Anonymous SAM enumeration disabled."
 
   #  I hope this works gng
