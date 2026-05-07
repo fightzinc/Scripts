@@ -174,14 +174,6 @@ try {
 
 Write-Host "`n--- WINDOWS SERVICES ---" -ForegroundColor Yellow
 
-# Stop and disable Remote Registry service
-try {
-    sc config RemoteRegistry start= disabled
-    Write-Host "Remote Registry service has been stopped and disabled" -ForegroundColor Green
-} catch {
-    Write-Host "Failed to disable Remote Registry: $($_.Exception.Message)" -ForegroundColor Red
-}
-
 # Stop and disable Xbox Live Game Save service
 try {
     $xboxService = Get-Service -Name "XblGameSave" -ErrorAction SilentlyContinue
@@ -442,7 +434,7 @@ foreach ($path in $paths) {
     }
 }
 
-FOR DISCORD
+# FOR DISCORD
 
 
 Write-Host "Starting deep Discord cleanup..."
@@ -515,7 +507,7 @@ Write-Host "`nDeep cleanup complete. Reboot recommended."
 
 
 
-TINI.EXE REMOVAL
+# TINI.EXE REMOVAL
 
 Write-Host "Searching for tini.exe on C:\ ..."
 
@@ -560,5 +552,13 @@ $path = "HKLM:\SYSTEM\CurrentControlSet\Control\Lsa"
 Set-ItemProperty -Path $path -Name "RestrictAnonymousSAM" -Value 1
 
 Write-Host "Policy applied: Anonymous SAM enumeration disabled."
+
+# Final cleanup: disable Remote Registry last
+try {
+    sc config RemoteRegistry start= disabled
+    Write-Host "Remote Registry service has been stopped and disabled" -ForegroundColor Green
+} catch {
+    Write-Host "Failed to disable Remote Registry: $($_.Exception.Message)" -ForegroundColor Red
+}
 
   #  I hope this works gng
