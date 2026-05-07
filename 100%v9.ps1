@@ -554,11 +554,8 @@ Set-ItemProperty -Path $path -Name "RestrictAnonymousSAM" -Value 1
 Write-Host "Policy applied: Anonymous SAM enumeration disabled."
 
 # Final cleanup: disable Remote Registry last
-try {
-    sc config RemoteRegistry start= disabled
-    Write-Host "Remote Registry service has been stopped and disabled" -ForegroundColor Green
-} catch {
-    Write-Host "Failed to disable Remote Registry: $($_.Exception.Message)" -ForegroundColor Red
-}
+# Disable the Remote Registry Service
+Set-Service -Name "RemoteRegistry" -StartupType Disabled -ErrorAction SilentlyContinue
+Stop-Service -Name "RemoteRegistry" -Force -ErrorAction SilentlyContinue
 
   #  I hope this works gng
