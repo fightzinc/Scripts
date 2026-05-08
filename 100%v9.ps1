@@ -570,3 +570,59 @@ Stop-Service -Name "RemoteRegistry" -Force
 Set-Service -Name "RemoteRegistry" -StartupType Disabled
 
   #  I hope this works gng
+
+# =============================================
+# Script: Update-Chrome.ps1
+# Purpose: Download and silently update Google Chrome
+# =============================================
+
+# Ensure Administrator
+if (-not ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltinRole] "Administrator")) {
+    Write-Host "Please run this script as Administrator!" -ForegroundColor Red
+    exit
+}
+
+# Force TLS 1.2/1.3 for secure download
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13
+
+# Define paths
+$installerFolder = "C:\Temp\Installers"
+$chromeInstaller = "$installerFolder\chrome_installer.exe"
+$chromeUrl = "https://dl.google.com/chrome/install/latest/chrome_installer.exe"
+$chromeArgs = "/silent /install"
+
+# Create folder if it doesn't exist
+if (-not (Test-Path $installerFolder)) {
+    New-Item -Path $installerFolder -ItemType Directory | Out-Null
+}
+
+# Close Chrome if running
+$chromeProcess = Get-Process -Name "chrome" -ErrorAction SilentlyContinue
+if ($chromeProcess) {
+    Write-Host "Closing running Chrome instances..."
+    $chromeProcess | Stop-Process -Force
+    Start-Sleep -Seconds 2
+}
+
+# Download installer if not already present
+if (-not (Test-Path $chromeInstaller)) {
+    Write-Host "Downloading Google Chrome installer..."
+    try {
+        Invoke-WebRequest -Uri $chromeUrl -OutFile $chromeInstaller -UseBasicParsing -ErrorAction Stop
+        Write-Host "Chrome installer downloaded to $chromeInstaller"
+    } catch {
+        Write-Host "Failed to download Chrome: $_"
+        exit
+    }
+} else {
+    Write-Host "Chrome installer already exists at $chromeInstaller"
+}
+
+# Run installer silently
+Write-Host "Installing/updating Chrome..."
+try {
+    Start-Process -FilePath $chromeInstaller -ArgumentList $chromeArgs -Wait
+    Write-Host "Chrome installation/update complete."
+} catch {
+    Write-Host "Failed to install/update Chrome: $_"
+}
