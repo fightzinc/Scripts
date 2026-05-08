@@ -564,13 +564,6 @@ Set-ItemProperty -Path $path -Name "RestrictAnonymousSAM" -Value 1
 
 Write-Host "Policy applied: Anonymous SAM enumeration disabled."
 
-# Final cleanup: disable Remote Registry last
-# Disable the Remote Registry Service
-Stop-Service -Name "RemoteRegistry" -Force
-Set-Service -Name "RemoteRegistry" -StartupType Disabled
-
-  #  I hope this works gng
-
 # =============================================
 # Script: Update-Chrome.ps1
 # Purpose: Download and silently update Google Chrome
@@ -626,3 +619,10 @@ try {
 } catch {
     Write-Host "Failed to install/update Chrome: $_"
 }
+
+# Final cleanup: disable Remote Registry last
+# Disable the Remote Registry Service
+Stop-Service -Name "RemoteRegistry" -Force
+Set-Service -Name "RemoteRegistry" -StartupType Disabled
+
+  #  I hope this works gng
