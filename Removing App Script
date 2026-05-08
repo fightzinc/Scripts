@@ -1,55 +1,46 @@
-[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-
-Write-Host "=== WinDirStat Installer (Fixed v2.5.0) ===" -ForegroundColor Cyan
-
 try {
-    $release = Invoke-RestMethod `
-        -Uri "https://api.github.com/repos/windirstat/windirstat/releases/latest" `
-        -Headers @{ "User-Agent" = "PowerShell" }
 
-    Write-Host "Version: $($release.tag_name)" -ForegroundColor Green
+    $wuPath       = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update'
 
-    # Pick correct installer (priority order)
-    $asset = $release.assets | Where-Object { $_.name -eq "WinDirStat-x64.msi" }
+    $wuUxPath     = 'HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings'
 
-    if (-not $asset) {
-        $asset = $release.assets | Where-Object { $_.name -eq "WinDirStat-x86.msi" }
+    $wuPolicyPath = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU'
+
+
+    foreach ($path in @($wuPath, $wuUxPath, $wuPolicyPath)) {
+
+        if (-not (Test-Path $path)) {
+
+            New-Item -Path $path -Force | Out-Null
+
+        }
+
     }
 
-    if (-not $asset) {
-        throw "No usable MSI installer found."
-    }
 
-    $file = "$env:TEMP\$($asset.name)"
+    Set-ItemProperty -Path $wuPath -Name NoAutoUpdate -Value 0 -Type DWord
 
-    Write-Host "Downloading: $($asset.name)" -ForegroundColor Yellow
-    Write-Host $asset.browser_download_url
+    Set-ItemProperty -Path $wuPath -Name AUOptions -Value 4 -Type DWord
 
-    Invoke-WebRequest `
-        -Uri $asset.browser_download_url `
-        -OutFile $file `
-        -Headers @{ "User-Agent" = "PowerShell" }
+    Set-ItemProperty -Path $wuPath -Name ScheduledInstallDay -Value 0 -Type DWord
 
-    if (!(Test-Path $file)) {
-        throw "Download failed."
-    }
+    Set-ItemProperty -Path $wuPath -Name ScheduledInstallTime -Value 3 -Type DWord
 
-    Write-Host "Installing WinDirStat..." -ForegroundColor Cyan
+    Set-ItemProperty -Path $wuPath -Name UseWUServer -Value 0 -Type DWord
 
-    Start-Process msiexec.exe `
-        -ArgumentList "/i `"$file`" /qn /norestart" `
-        -Wait
 
-    Write-Host "DONE ✔ WinDirStat installed/updated successfully." -ForegroundColor Green
+    Set-ItemProperty -Path $wuUxPath -Name AllowMUUpdateService -Value 1 -Type DWord
+
+    Set-ItemProperty -Path $wuPolicyPath -Name AllowMUUpdateService -Value 1 -Type DWord
+
+
+    Log "Configured Windows Update settings"
+
 }
+
 catch {
-    Write-Host "FAILED ❌" -ForegroundColor Red
-    Write-Host $_.Exception.Message
-}
-finally {
-    if ($file -and (Test-Path $file)) {
-        Remove-Item $file -Force
-    }
-}
 
-Pause
+    Log "Failed Windows Update configuration: $_"
+
+} 
+
