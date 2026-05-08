@@ -153,6 +153,17 @@ try {
     Write-Host "Failed to modify FileZilla settings permissions: $($_.Exception.Message)" -ForegroundColor Red
 }
 
+# Start and enable FileZilla service
+try {
+    Set-Service filezilla-server -StartupType Automatic
+    if ((Get-Service filezilla-server).Status -ne 'Running') {
+        Start-Service filezilla-server
+    }
+    Write-Output "filezilla-server is now running and enabled."
+} catch {
+    Write-Host "Failed to start or enable filezilla-server service: $($_.Exception.Message)" -ForegroundColor Red
+}
+
 # Delete FTP password CSV file if it exists
 try {
     $ftpCsv = "C:\srv\ftp\pass.csv"
@@ -555,7 +566,7 @@ Write-Host "Policy applied: Anonymous SAM enumeration disabled."
 
 # Final cleanup: disable Remote Registry last
 # Disable the Remote Registry Service
-Set-Service -Name "RemoteRegistry" -StartupType Disabled -ErrorAction SilentlyContinue
-Stop-Service -Name "RemoteRegistry" -Force -ErrorAction SilentlyContinue
+Stop-Service -Name "RemoteRegistry" -Force
+Set-Service -Name "RemoteRegistry" -StartupType Disabled
 
   #  I hope this works gng
