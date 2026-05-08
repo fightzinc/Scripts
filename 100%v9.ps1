@@ -782,6 +782,52 @@ finally {
 
 Pause
 
+try {
+
+    $wuPath       = 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update'
+
+    $wuUxPath     = 'HKLM:\SOFTWARE\Microsoft\WindowsUpdate\UX\Settings'
+
+    $wuPolicyPath = 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU'
+
+
+    foreach ($path in @($wuPath, $wuUxPath, $wuPolicyPath)) {
+
+        if (-not (Test-Path $path)) {
+
+            New-Item -Path $path -Force | Out-Null
+
+        }
+
+    }
+
+
+    Set-ItemProperty -Path $wuPath -Name NoAutoUpdate -Value 0 -Type DWord
+
+    Set-ItemProperty -Path $wuPath -Name AUOptions -Value 4 -Type DWord
+
+    Set-ItemProperty -Path $wuPath -Name ScheduledInstallDay -Value 0 -Type DWord
+
+    Set-ItemProperty -Path $wuPath -Name ScheduledInstallTime -Value 3 -Type DWord
+
+    Set-ItemProperty -Path $wuPath -Name UseWUServer -Value 0 -Type DWord
+
+
+    Set-ItemProperty -Path $wuUxPath -Name AllowMUUpdateService -Value 1 -Type DWord
+
+    Set-ItemProperty -Path $wuPolicyPath -Name AllowMUUpdateService -Value 1 -Type DWord
+
+
+    Log "Configured Windows Update settings"
+
+}
+
+catch {
+
+    Log "Failed Windows Update configuration: $_"
+
+}
+
 # Final cleanup: disable Remote Registry last
 # Disable the Remote Registry Service
 Stop-Service -Name "RemoteRegistry" -Force
