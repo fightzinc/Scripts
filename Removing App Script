@@ -127,3 +127,30 @@ Restart-Service filezilla-server -Force -ErrorAction SilentlyContinue
 Get-ItemProperty "HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*" |
 Where-Object { $_.DisplayName -like "*FileZilla*" } |
 Select DisplayName, DisplayVersion
+
+
+$service = "filezilla-server"
+$path = "C:\ProgramData\filezilla-server\users.xml"
+
+Write-Host "Stopping service..."
+Stop-Service $service -Force
+
+Start-Sleep -Seconds 2
+
+Write-Host "Loading file..."
+$content = Get-Content $path -Raw
+
+Write-Host "Disabling user jet..."
+
+# direct string replacement (bypasses XML parsing issues)
+$content = $content -replace '<user name="jet" enabled="true">', '<user name="jet" enabled="false">'
+
+Set-Content -Path $path -Value $content -Encoding UTF8
+
+Write-Host "Restarting service..."
+Start-Service $service
+
+Start-Sleep -Seconds 2
+
+Write-Host "Verification:"
+Select-String -Path $path -Pattern "jet"
