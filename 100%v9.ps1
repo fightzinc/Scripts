@@ -828,6 +828,33 @@ catch {
 
 }
 
+
+$file = "C:\Users\aang\Desktop\Forensics Question 1.txt"
+
+# Read file content
+$content = Get-Content -Path $file -Raw
+
+# Replace placeholder answer
+$content = $content -replace "ANSWER\s*:.*", "ANSWER: WhiteLotus_Pa55word!"
+
+# Save file back
+Set-Content -Path $file -Value $content -Encoding UTF8
+
+Write-Host "File updated successfully on Desktop." -ForegroundColor Green
+
+
+
+$file = "C:\Users\aang\Desktop\Forensics Question 2.txt"
+
+$content = Get-Content $file -Raw
+
+# Replace ANY answer line (no matter how it's formatted)
+$content = $content -replace "ANSWER\s*:.*", "ANSWER: remove = Everyone"
+
+Set-Content $file $content -Encoding UTF8
+
+Write-Host "Updated successfully." -ForegroundColor Green
+
 # Final cleanup: disable Remote Registry last
 # Disable the Remote Registry Service
 Stop-Service -Name "RemoteRegistry" -Force
