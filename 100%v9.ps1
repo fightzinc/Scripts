@@ -855,6 +855,78 @@ Set-Content $file $content -Encoding UTF8
 
 Write-Host "Updated successfully." -ForegroundColor Green
 
+
+# -------------------------
+# INSTALL FILEZILLA (silent upgrade)
+# -------------------------
+$ErrorActionPreference = "Stop"
+
+$url = "https://dl1.cdn.filezilla-project.org/server/FileZilla_Server_1.12.6_win64-setup.exe?h=be2F_GvsAOp6Vp_xnaaaHQ&x=1778598915"
+$out = "$env:TEMP\FileZillaServer.exe"
+
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+
+# Download
+try {
+    Invoke-WebRequest -Uri $url -OutFile $out -Headers @{ "User-Agent" = "Mozilla/5.0" }
+}
+catch {
+    Start-BitsTransfer -Source $url -Destination $out
+}
+
+# Try upgrade install first
+try {
+    Start-Process $out -ArgumentList "/S" -Wait
+}
+catch {
+    Write-Host "Upgrade failed, attempting uninstall + reinstall..." -ForegroundColor Yellow
+
+    Start-Process "C:\Program Files\FileZilla Server\Uninstall.exe" -ArgumentList "/S" -Wait
+    Start-Process $out -ArgumentList "/S" -Wait
+}
+
+# Restart service
+Restart-Service filezilla-server -Force -ErrorAction SilentlyContinue
+
+# Verify
+Get-ItemProperty "HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*" |
+Where-Object { $_.DisplayName -like "*FileZilla*" } |
+Select DisplayName, DisplayVersion
+
+
+
+# jet removal tool yes
+
+$service = "filezilla-server"
+$path = "C:\ProgramData\filezilla-server\users.xml"
+
+Write-Host "Stopping service..."
+Stop-Service $service -Force
+
+Start-Sleep -Seconds 2
+
+Write-Host "Loading file..."
+$content = Get-Content $path -Raw
+
+Write-Host "Disabling user jet..."
+
+# direct string replacement (bypasses XML parsing issues)
+$content = $content -replace '<user name="jet" enabled="true">', '<user name="jet" enabled="false">'
+
+Set-Content -Path $path -Value $content -Encoding UTF8
+
+Write-Host "Restarting service..."
+Start-Service $service
+
+Start-Sleep -Seconds 2
+
+Write-Host "Verification:"
+Select-String -Path $path -Pattern "jet"
+
+
+
+
+
 # Final cleanup: disable Remote Registry last
 # Disable the Remote Registry Service
 Stop-Service -Name "RemoteRegistry" -Force
