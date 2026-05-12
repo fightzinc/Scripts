@@ -53,7 +53,7 @@ $file = "C:\Users\aang\Desktop\Forensics Question 1.txt"
 $content = Get-Content -Path $file -Raw
 
 # Replace placeholder answer
-$content = $content -replace "ANSWER: <Type Answer Here>", "ANSWER: WhiteLotus_Pa55word!"
+$content = $content -replace "ANSWER\s*:.*", "ANSWER: WhiteLotus_Pa55word!"
 
 # Save file back
 Set-Content -Path $file -Value $content -Encoding UTF8
