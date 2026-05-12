@@ -94,70 +94,36 @@ Write-Host "Updated successfully." -ForegroundColor Green
 Filezilla update
 
 
-# =========================
-# FileZilla Server Upgrade Script
-# =========================
-
 $ErrorActionPreference = "Stop"
 
-# Target installer
 $url = "https://dl1.cdn.filezilla-project.org/server/FileZilla_Server_1.12.6_win64-setup.exe?h=be2F_GvsAOp6Vp_xnaaaHQ&x=1778598915"
 $out = "$env:TEMP\FileZillaServer.exe"
 
-Write-Host "Starting FileZilla Server upgrade..." -ForegroundColor Cyan
-
-# Ensure TLS 1.2
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
-# -------------------------
-# DOWNLOAD (try WebRequest first, fallback to BITS)
-# -------------------------
+# Download
 try {
-    Write-Host "Trying Invoke-WebRequest..." -ForegroundColor Yellow
-
-    Invoke-WebRequest -Uri $url -OutFile $out -Headers @{
-        "User-Agent" = "Mozilla/5.0"
-    }
-
-    Write-Host "Download successful via Invoke-WebRequest" -ForegroundColor Green
+    Invoke-WebRequest -Uri $url -OutFile $out -Headers @{ "User-Agent" = "Mozilla/5.0" }
 }
 catch {
-    Write-Host "Invoke-WebRequest failed, trying BITS..." -ForegroundColor Yellow
-
-    try {
-        Start-BitsTransfer -Source $url -Destination $out
-        Write-Host "Download successful via BITS" -ForegroundColor Green
-    }
-    catch {
-        Write-Host "Download failed via both methods." -ForegroundColor Red
-        throw
-    }
+    Start-BitsTransfer -Source $url -Destination $out
 }
 
-# -------------------------
-# INSTALL (silent upgrade)
-# -------------------------
-Write-Host "Installing FileZilla Server..." -ForegroundColor Cyan
+# Try upgrade install first
+try {
+    Start-Process $out -ArgumentList "/S" -Wait
+}
+catch {
+    Write-Host "Upgrade failed, attempting uninstall + reinstall..." -ForegroundColor Yellow
 
-Start-Process -FilePath $out -ArgumentList "/S" -Wait
+    Start-Process "C:\Program Files\FileZilla Server\Uninstall.exe" -ArgumentList "/S" -Wait
+    Start-Process $out -ArgumentList "/S" -Wait
+}
 
-# -------------------------
-# RESTART SERVICE
-# -------------------------
-Write-Host "Restarting service..." -ForegroundColor Cyan
-
+# Restart service
 Restart-Service filezilla-server -Force -ErrorAction SilentlyContinue
 
-# -------------------------
-# VERIFY VERSION
-# -------------------------
-Write-Host "Verifying installation..." -ForegroundColor Cyan
-
-$ver = Get-ItemProperty "HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*" |
+# Verify
+Get-ItemProperty "HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*" |
 Where-Object { $_.DisplayName -like "*FileZilla*" } |
-Select-Object DisplayName, DisplayVersion
-
-$ver | Format-Table -AutoSize
-
-Write-Host "Upgrade process completed." -ForegroundColor Green
-
+Select DisplayName, DisplayVersion
