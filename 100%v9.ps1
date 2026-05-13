@@ -1,3 +1,6 @@
+#NOTE: Run this code first to enable scripts:
+#           Set-ExecutionPolicy -Scope Process Bypass
+
 #Requires -RunAsAdministrator
 
 # Windows Security Hardening Script - Comprehensive
