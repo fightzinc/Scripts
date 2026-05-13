@@ -1,6 +1,3 @@
-#NOTE: Run this code first to enable scripts:
-#           Set-ExecutionPolicy -Scope Process Bypass
-
 #Requires -RunAsAdministrator
 
 # Windows Security Hardening Script - Comprehensive
@@ -927,14 +924,6 @@ Write-Host "Verification:"
 Select-String -Path $path -Pattern "jet"
 
 
-
-$file = "C:\ProgramData\filezilla-server\settings.xml"
-
-$content = Get-Content $file -Raw
-
-$content = $content -replace "<ban_duration>0</ban_duration>", "<ban_duration>1800000</ban_duration>"
-
-Set-Content -Path $file -Value $content -Encoding UTF8
 
 
 
